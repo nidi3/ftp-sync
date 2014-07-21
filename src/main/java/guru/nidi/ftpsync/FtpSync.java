@@ -23,10 +23,7 @@ import java.io.IOException;
  */
 public class FtpSync {
     static {
-        final MavenRepoClasspathEnhancer enhancer = new MavenRepoClasspathEnhancer();
-        final ClassLoader current = Thread.currentThread().getContextClassLoader();
-        enhancer.enhanceClassLoader(current, "org.bouncycastle", "bcpkix-jdk15on", "1.50");
-        enhancer.enhanceClassLoader(current, "org.bouncycastle", "bcprov-jdk15on", "1.50");
+        new JarLocalClasspathEnhancer().enhanceClassLoader();
     }
 
     public void sync(Config config) throws IOException {

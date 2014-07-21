@@ -35,7 +35,7 @@
                     <execution>
                         <phase>prepare-package</phase>
                         <goals>
-                            <goal>unpack-dependencies</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
                             <outputDirectory>${project.build.outputDirectory}</outputDirectory>
@@ -69,12 +69,6 @@
             <groupId>net.schmizz</groupId>
             <artifactId>sshj</artifactId>
             <version>0.10.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>bcpkix-jdk15on</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

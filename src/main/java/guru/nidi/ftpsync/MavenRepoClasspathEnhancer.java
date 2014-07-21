@@ -23,38 +23,24 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathFactory;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLClassLoader;
 
 /**
  *
  */
-public class MavenRepoClasspathEnhancer {
+public class MavenRepoClasspathEnhancer extends AbstractClasspathEnhancer {
     private final String mavenRepo;
-    private final Method addURL;
 
     public MavenRepoClasspathEnhancer() {
         mavenRepo = findLocalRepo();
-        try {
-            addURL = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-            addURL.setAccessible(true);
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
+    }
+
+    public void enhanceClassLoader(String groupId, String artifactId, String version) {
+        enhanceClassLoader(contextClassLoader(), groupId, artifactId, version);
     }
 
     public void enhanceClassLoader(ClassLoader classLoader, String groupId, String artifactId, String version) {
-        if (!(classLoader instanceof URLClassLoader)) {
-            throw new RuntimeException("Cannot change classpath dynamically");
-        }
-        URLClassLoader ucl = (URLClassLoader) classLoader;
-        try {
-            final String filename = mavenRepo + "/" + groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + ".jar";
-            addURL.invoke(ucl, new URL("file:" + filename));
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot change classpath dynamically", e);
-        }
+        final String filename = mavenRepo + "/" + groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + ".jar";
+        enhanceClassLoader(classLoader, "file:" + filename);
     }
 
     private String findLocalRepo() {
