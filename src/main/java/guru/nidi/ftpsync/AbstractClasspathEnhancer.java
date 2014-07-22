@@ -15,7 +15,7 @@
  */
 package guru.nidi.ftpsync;
 
-import java.io.*;
+import java.io.File;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -25,10 +25,12 @@ import java.net.URLClassLoader;
  *
  */
 public abstract class AbstractClasspathEnhancer {
+    private final Class<?> appClass;
     private final Method addURL;
 
-    public AbstractClasspathEnhancer() {
+    public AbstractClasspathEnhancer(Class<?> appClass) {
         try {
+            this.appClass = appClass;
             addURL = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
             addURL.setAccessible(true);
         } catch (NoSuchMethodException e) {
@@ -36,15 +38,69 @@ public abstract class AbstractClasspathEnhancer {
         }
     }
 
-    public void enhanceClassLoader(ClassLoader classLoader, String url) {
+    private URL appClassUrl() {
+        final String name = appClass.getName().replace('.', '/') + ".class";
+        final URL resource = appClass.getClassLoader().getResource(name);
+        if (resource == null) {
+            throw new RuntimeException("Cannot find application class");
+        }
+        return resource;
+    }
+
+    protected Class<?> getAppClass() {
+        return appClass;
+    }
+
+    private int appClassLen() {
+        return appClass.getName().length() + 6;
+    }
+
+    protected enum RuntimeContext {
+        FILE {
+            @Override
+            public File appClassContainer(AbstractClasspathEnhancer enhancer) {
+                final String file = enhancer.appClassUrl().getFile();
+                final String basedir = file.substring(0, file.length() - enhancer.appClassLen() - 1);
+                final int pos = basedir.lastIndexOf('/');
+                return new File(basedir.substring(0, pos));
+            }
+        },
+        JAR {
+            @Override
+            public File appClassContainer(AbstractClasspathEnhancer enhancer) {
+                final String file = enhancer.appClassUrl().getFile();
+                if (!file.startsWith("file:")) {
+                    throw new RuntimeException("Unknown jar protocol " + file);
+                }
+                return new File(file.substring(5, file.length() - enhancer.appClassLen() - 2));
+            }
+        };
+
+        public abstract File appClassContainer(AbstractClasspathEnhancer enhancer);
+    }
+
+    protected RuntimeContext runtimeContext() {
+        final URL url = appClassUrl();
+        switch (url.getProtocol()) {
+            case "file":
+                return RuntimeContext.FILE;
+            case "jar":
+                return RuntimeContext.JAR;
+            default:
+                throw new RuntimeException("Unknown protocol " + url.getProtocol());
+        }
+    }
+
+    public void enhanceClassLoader(String url) {
         try {
-            enhanceClassLoader(classLoader, new URL(url));
+            enhanceClassLoader(new URL(url));
         } catch (MalformedURLException e) {
             throw new RuntimeException("Illegal URL", e);
         }
     }
 
-    public void enhanceClassLoader(ClassLoader classLoader, URL url) {
+    public void enhanceClassLoader(URL url) {
+        final ClassLoader classLoader = appClass.getClassLoader();
         if (!(classLoader instanceof URLClassLoader)) {
             throw new RuntimeException("Cannot change classpath dynamically");
         }
@@ -56,18 +112,5 @@ public abstract class AbstractClasspathEnhancer {
         }
     }
 
-    public ClassLoader contextClassLoader() {
-        return Thread.currentThread().getContextClassLoader();
-    }
 
-    protected static void copy(InputStream in, OutputStream out) throws IOException {
-        try (final BufferedInputStream bin = new BufferedInputStream(in);
-             final BufferedOutputStream bout = new BufferedOutputStream(out)) {
-            final byte[] buf = new byte[1000];
-            int read;
-            while ((read = bin.read(buf)) > 0) {
-                bout.write(buf, 0, read);
-            }
-        }
-    }
 }

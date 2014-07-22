@@ -15,9 +15,10 @@
  */
 package guru.nidi.ftpsync;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -27,43 +28,28 @@ import java.util.jar.JarFile;
  */
 public class JarLocalClasspathEnhancer extends AbstractClasspathEnhancer {
 
-    public JarLocalClasspathEnhancer() {
+    public JarLocalClasspathEnhancer(Class<?> appClass) {
+        super(appClass);
     }
 
     public void enhanceClassLoader() {
-        enhanceClassLoader(contextClassLoader());
-    }
-
-    public void enhanceClassLoader(ClassLoader classLoader) {
-        final String name = getClass().getName().replace('.', '/') + ".class";
-        final URL resource = classLoader.getResource(name);
-        if (resource == null) {
-            throw new RuntimeException("Cannot find myself");
-        }
-        final String file = resource.getFile();
-        switch (resource.getProtocol()) {
-            case "file":
-                final String basedir = file.substring(0, file.length() - name.length() - 1);
-                final int pos = basedir.lastIndexOf('/');
-                enhanceWithFile(classLoader, basedir.substring(0, pos));
+        final RuntimeContext runtimeContext = runtimeContext();
+        final File appClassContainer = runtimeContext.appClassContainer(this);
+        switch (runtimeContext) {
+            case FILE:
+                enhanceWithFile(appClassContainer);
                 break;
-            case "jar":
-                if (!file.startsWith("file:")) {
-                    throw new RuntimeException("Unknown jar protocol " + file);
-                }
-                final String jar = file.substring(5, file.length() - name.length() - 2);
-                enhanceWithJar(classLoader, jar);
+            case JAR:
+                enhanceWithJar(appClassContainer);
                 break;
-            default:
-                throw new RuntimeException("Unknown protocol " + resource.getProtocol());
         }
     }
 
-    private void enhanceWithFile(ClassLoader classLoader, String basedir) {
-        for (File file : new File(basedir).listFiles()) {
+    private void enhanceWithFile(File basedir) {
+        for (File file : basedir.listFiles()) {
             if (file.isFile() && file.getName().endsWith(".jar")) {
                 try {
-                    enhanceClassLoader(classLoader, file.toURI().toURL());
+                    enhanceClassLoader(file.toURI().toURL());
                 } catch (MalformedURLException e) {
                     throw new RuntimeException(e);
                 }
@@ -71,15 +57,17 @@ public class JarLocalClasspathEnhancer extends AbstractClasspathEnhancer {
         }
     }
 
-    private void enhanceWithJar(ClassLoader classLoader, String jar) {
+    private void enhanceWithJar(File jar) {
+        final File dir = Utils.tempFile(getAppClass().getName());
+        dir.mkdirs();
         try (final JarFile jarFile = new JarFile(jar)) {
             final Enumeration<JarEntry> entries = jarFile.entries();
             while (entries.hasMoreElements()) {
                 final JarEntry jarEntry = entries.nextElement();
                 if (!jarEntry.isDirectory() && jarEntry.getName().endsWith(".jar")) {
-                    final File temp = new File(System.getProperty("java.io.tmpdir"), jarEntry.getName());
-                    copy(jarFile.getInputStream(jarEntry), new FileOutputStream(temp));
-                    enhanceClassLoader(classLoader, temp.toURI().toURL());
+                    final File temp = new File(dir, jarEntry.getName());
+                    Utils.copy(jarFile.getInputStream(jarEntry), new FileOutputStream(temp));
+                    enhanceClassLoader(temp.toURI().toURL());
                 }
             }
         } catch (IOException e) {

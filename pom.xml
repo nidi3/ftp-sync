@@ -15,7 +15,7 @@
     <version>1.0.0-SNAPSHOT</version>
 
     <name>${project.artifactId}</name>
-    <description>A simple synchronizer between a local an a remote server (using only (S)FTP)</description>
+    <description>A simple synchronizer between a local an a remote server (using only (S)FTP).</description>
     <url>https://github.com/nidi3/ftp-sync</url>
     <inceptionYear>2014</inceptionYear>
 
@@ -28,22 +28,22 @@
 
     <build>
         <plugins>
-            <plugin>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>2.6</version>
-                <executions>
-                    <execution>
-                        <phase>prepare-package</phase>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
-                            <includeScope>compile</includeScope>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+            <!--<plugin>-->
+                <!--<artifactId>maven-dependency-plugin</artifactId>-->
+                <!--<version>2.6</version>-->
+                <!--<executions>-->
+                    <!--<execution>-->
+                        <!--<phase>prepare-package</phase>-->
+                        <!--<goals>-->
+                            <!--<goal>copy-dependencies</goal>-->
+                        <!--</goals>-->
+                        <!--<configuration>-->
+                            <!--<outputDirectory>${project.build.outputDirectory}</outputDirectory>-->
+                            <!--<includeScope>compile</includeScope>-->
+                        <!--</configuration>-->
+                    <!--</execution>-->
+                <!--</executions>-->
+            <!--</plugin>-->
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>2.4</version>
