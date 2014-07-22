@@ -23,6 +23,7 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathFactory;
+import java.io.File;
 
 /**
  *
@@ -39,8 +40,11 @@ public class MavenRepoClasspathEnhancer extends AbstractClasspathEnhancer {
     }
 
     public void enhanceClassLoader(ClassLoader classLoader, String groupId, String artifactId, String version) {
-        final String filename = mavenRepo + "/" + groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + ".jar";
-        enhanceClassLoader(classLoader, "file:" + filename);
+        final MavenArtifact gav = new MavenArtifact(groupId, artifactId, version);
+        final File file = mavenRepo != null
+                ? gav.downloadWithMaven(mavenRepo)
+                : gav.downloadManually();
+        enhanceClassLoader(classLoader, "file:" + file.getAbsolutePath());
     }
 
     private String findLocalRepo() {
@@ -67,4 +71,5 @@ public class MavenRepoClasspathEnhancer extends AbstractClasspathEnhancer {
             throw new RuntimeException(e);
         }
     }
+
 }

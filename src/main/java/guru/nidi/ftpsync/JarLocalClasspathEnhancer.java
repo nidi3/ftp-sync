@@ -87,14 +87,5 @@ public class JarLocalClasspathEnhancer extends AbstractClasspathEnhancer {
         }
     }
 
-    private void copy(InputStream in, OutputStream out) throws IOException {
-        try (final BufferedInputStream bin = new BufferedInputStream(in);
-             final BufferedOutputStream bout = new BufferedOutputStream(out)) {
-            final byte[] buf = new byte[1000];
-            int read;
-            while ((read = bin.read(buf)) > 0) {
-                bout.write(buf, 0, read);
-            }
-        }
-    }
+
 }

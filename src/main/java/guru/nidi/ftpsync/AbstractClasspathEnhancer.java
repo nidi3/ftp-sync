@@ -15,6 +15,7 @@
  */
 package guru.nidi.ftpsync;
 
+import java.io.*;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -57,5 +58,16 @@ public abstract class AbstractClasspathEnhancer {
 
     public ClassLoader contextClassLoader() {
         return Thread.currentThread().getContextClassLoader();
+    }
+
+    protected static void copy(InputStream in, OutputStream out) throws IOException {
+        try (final BufferedInputStream bin = new BufferedInputStream(in);
+             final BufferedOutputStream bout = new BufferedOutputStream(out)) {
+            final byte[] buf = new byte[1000];
+            int read;
+            while ((read = bin.read(buf)) > 0) {
+                bout.write(buf, 0, read);
+            }
+        }
     }
 }
