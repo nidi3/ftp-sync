@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package guru.nidi.ftpsync;
+package guru.nidi.ftpsync.fs;
 
-import org.apache.commons.net.ftp.FTP;
-import org.apache.commons.net.ftp.FTPClient;
-import org.apache.commons.net.ftp.FTPFile;
-import org.apache.commons.net.ftp.FTPReply;
+import guru.nidi.ftpsync.Config;
+import guru.nidi.ftpsync.FtpException;
+import org.apache.commons.net.ftp.*;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,10 +29,10 @@ import java.util.List;
 /**
  *
  */
-public class FtpImpl implements Client {
+public class FtpFileSystem implements FileSystem {
     private final FTPClient client;
 
-    public FtpImpl(Config config) throws IOException {
+    public FtpFileSystem(Config config) throws IOException {
         client = new FTPClient();
         client.connect(config.getHost());
         int reply = client.getReplyCode();
@@ -76,10 +75,10 @@ public class FtpImpl implements Client {
     }
 
     @Override
-    public List<RemoteFile> listFiles(String dir) throws IOException {
-        List<RemoteFile> res = new ArrayList<>();
-        for (FTPFile file : client.listFiles(dir)) {
-            res.add(new RemoteFileImpl(file));
+    public List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException {
+        List<AbstractFile> res = new ArrayList<>();
+        for (FTPFile file : client.listFiles(dir, new FTPFileFilterImpl(filter))) {
+            res.add(new AbstractFileImpl(file));
         }
         return res;
     }
@@ -88,10 +87,23 @@ public class FtpImpl implements Client {
     public void close() {
     }
 
-    private class RemoteFileImpl implements RemoteFile {
+    private static class FTPFileFilterImpl implements FTPFileFilter {
+        private final AbstractFileFilter filter;
+
+        private FTPFileFilterImpl(AbstractFileFilter filter) {
+            this.filter = filter;
+        }
+
+        @Override
+        public boolean accept(FTPFile ftpFile) {
+            return filter.accept(new AbstractFileImpl(ftpFile));
+        }
+    }
+
+    private static class AbstractFileImpl implements AbstractFile {
         private final FTPFile file;
 
-        private RemoteFileImpl(FTPFile file) {
+        private AbstractFileImpl(FTPFile file) {
             this.file = file;
         }
 
@@ -108,6 +120,11 @@ public class FtpImpl implements Client {
         @Override
         public String getName() {
             return file.getName();
+        }
+
+        @Override
+        public File asFile() {
+            throw new UnsupportedOperationException();
         }
     }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package guru.nidi.ftpsync;
+package guru.nidi.ftpsync.cpmagic;
 
 import java.io.File;
 import java.lang.reflect.Method;

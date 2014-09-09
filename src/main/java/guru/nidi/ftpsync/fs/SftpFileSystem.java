@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package guru.nidi.ftpsync;
+package guru.nidi.ftpsync.fs;
 
+import guru.nidi.ftpsync.Config;
 import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.sftp.RemoteResourceFilter;
 import net.schmizz.sshj.sftp.RemoteResourceInfo;
 import net.schmizz.sshj.sftp.SFTPClient;
 
@@ -27,11 +29,11 @@ import java.util.List;
 /**
  *
  */
-public class SFtpImpl implements Client {
+public class SftpFileSystem implements FileSystem {
     private final SSHClient ssh;
     private final SFTPClient client;
 
-    public SFtpImpl(Config config) throws IOException {
+    public SftpFileSystem(Config config) throws IOException {
         ssh = new SSHClient();
         ssh.loadKnownHosts();
         ssh.connect(config.getHost());
@@ -66,18 +68,31 @@ public class SFtpImpl implements Client {
     }
 
     @Override
-    public List<RemoteFile> listFiles(String dir) throws IOException {
-        List<RemoteFile> res = new ArrayList<>();
-        for (RemoteResourceInfo info : client.ls(dir)) {
-            res.add(new RemoteFileImpl(info));
+    public List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException {
+        List<AbstractFile> res = new ArrayList<>();
+        for (RemoteResourceInfo info : client.ls(dir, new RemoteResourceFilterImpl(filter))) {
+            res.add(new AbstractFileImpl(info));
         }
         return res;
     }
 
-    private class RemoteFileImpl implements RemoteFile {
+    private static class RemoteResourceFilterImpl implements RemoteResourceFilter {
+        private final AbstractFileFilter filter;
+
+        private RemoteResourceFilterImpl(AbstractFileFilter filter) {
+            this.filter = filter;
+        }
+
+        @Override
+        public boolean accept(RemoteResourceInfo resource) {
+            return filter.accept(new AbstractFileImpl(resource));
+        }
+    }
+
+    private static class AbstractFileImpl implements AbstractFile {
         private final RemoteResourceInfo info;
 
-        public RemoteFileImpl(RemoteResourceInfo info) {
+        public AbstractFileImpl(RemoteResourceInfo info) {
             this.info = info;
         }
 
@@ -94,6 +109,11 @@ public class SFtpImpl implements Client {
         @Override
         public String getName() {
             return info.getName();
+        }
+
+        @Override
+        public File asFile() {
+            throw new UnsupportedOperationException();
         }
     }
 }

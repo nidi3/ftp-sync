@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package guru.nidi.ftpsync;
+package guru.nidi.ftpsync.fs;
 
 import java.io.Closeable;
 import java.io.File;
@@ -23,7 +23,7 @@ import java.util.List;
 /**
  *
  */
-public interface Client extends Closeable {
+public interface FileSystem extends Closeable {
     void deleteFile(String name) throws IOException;
 
     void deleteDirectory(String name) throws IOException;
@@ -32,13 +32,6 @@ public interface Client extends Closeable {
 
     void createDirectory(String name) throws IOException;
 
-    List<RemoteFile> listFiles(String dir) throws IOException;
+    List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException;
 
-    interface RemoteFile {
-        boolean isFile();
-
-        boolean isDirectory();
-
-        String getName();
-    }
 }

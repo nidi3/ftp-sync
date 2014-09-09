@@ -15,6 +15,9 @@
  */
 package guru.nidi.ftpsync;
 
+import guru.nidi.ftpsync.cpmagic.MavenRepoClasspathEnhancer;
+import guru.nidi.ftpsync.fs.*;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -29,48 +32,74 @@ public class FtpSync {
 //        new JarLocalClasspathEnhancer(FtpSync.class).enhanceClassLoader();
     }
 
+    private static final AbstractFileFilter SELECT_FILES = new AbstractFileFilter() {
+        @Override
+        public boolean accept(AbstractFile abstractFile) {
+            return abstractFile.isFile();
+        }
+    };
+    private static final AbstractFileFilter SELECT_DIRS = new AbstractFileFilter() {
+        @Override
+        public boolean accept(AbstractFile abstractFile) {
+            return abstractFile.isDirectory() && !abstractFile.getName().equals(".") && !abstractFile.getName().equals("..");
+        }
+    };
+
     public void sync(Config config) throws IOException {
-        try (final Client client = createClient(config)) {
-            deleteDirs(client, config.getRemoteDir());
-            copyDirs(client, new File(config.getLocalDir()), config.getRemoteDir());
+        try (final FileSystem fileSystem = createClient(config)) {
+            deleteDirs(fileSystem, config.getRemoteDir());
+            copyDirs(fileSystem, new File(config.getLocalDir()), config.getRemoteDir());
         }
     }
 
-    public Client createClient(Config config) throws IOException {
+    public FileSystem createClient(Config config) throws IOException {
         if (config.isSecure()) {
-            return new SFtpImpl(config);
+            return new SftpFileSystem(config);
         }
-        return new FtpImpl(config);
+        return new FtpFileSystem(config);
     }
 
-    public void copyDirs(Client client, File sourceDir, String destDir) throws IOException {
-        System.out.println("Copying to remote: " + sourceDir);
+    public void copyDirs(final FileSystem fileSystem, File sourceDir, String destDir) throws IOException {
+        final String source = sourceDir.getAbsolutePath();
+        System.out.println("Copying to remote: " + source);
+        fileSystem.createDirectory(destDir);
         final String base = destDir.endsWith("/") ? destDir : (destDir + "/");
-        final File[] files = sourceDir.listFiles();
-        client.createDirectory(destDir);
-        if (files != null) {
-            for (File file : files) {
-                if (file.isFile()) {
-                    client.copyFile(file, base + file.getName());
-                } else if (file.isDirectory()) {
-                    copyDirs(client, file, base + file.getName());
-                }
+
+        Utils.doProgressively(new LocalFileSystem().listFiles(source, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
+            @Override
+            public String itemName(AbstractFile item) {
+                return item.getName();
             }
+
+            @Override
+            public void processItem(AbstractFile item) throws IOException {
+                fileSystem.copyFile(item.asFile(), base + item.getName());
+            }
+        });
+
+        for (AbstractFile dir : new LocalFileSystem().listFiles(source, SELECT_DIRS)) {
+            copyDirs(fileSystem, dir.asFile(), base + dir.getName());
         }
     }
 
-    public void deleteDirs(Client client, String path) throws IOException {
+    public void deleteDirs(final FileSystem fileSystem, String path) throws IOException {
         System.out.println("Deleting remote: " + path);
         final String base = path.endsWith("/") ? path : (path + "/");
-        for (Client.RemoteFile file : client.listFiles(path)) {
-            final String name = file.getName();
-            if (file.isFile()) {
-                client.deleteFile(base + name);
-            } else if (file.isDirectory() && !name.equals(".") && !name.equals("..")) {
-                deleteDirs(client, base + name);
+        Utils.doProgressively(fileSystem.listFiles(path, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
+            @Override
+            public String itemName(AbstractFile item) {
+                return item.getName();
             }
+
+            @Override
+            public void processItem(AbstractFile item) throws Exception {
+                fileSystem.deleteFile(base + item.getName());
+            }
+        });
+        for (AbstractFile dir : fileSystem.listFiles(path, SELECT_DIRS)) {
+            deleteDirs(fileSystem, base + dir.getName());
         }
-        client.deleteDirectory(path);
+        fileSystem.deleteDirectory(path);
     }
 
     public static void main(String[] args) throws IOException {

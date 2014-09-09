@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package guru.nidi.ftpsync;
+package guru.nidi.ftpsync.cpmagic;
 
 import org.w3c.dom.Document;
 
@@ -80,7 +80,7 @@ public class MavenRepoClasspathEnhancer extends AbstractClasspathEnhancer {
     }
 
     private void enhanceFromPom(InputStream pom, File source) throws IOException {
-        final File dir = Utils.tempFile(getAppClass().getName());
+        final File dir = CpMagicUtils.tempFile(getAppClass().getName());
         dir.mkdirs();
         final File dependencyFile = new File(dir, "dependencies");
         enhanceWithDependencies(
@@ -102,16 +102,16 @@ public class MavenRepoClasspathEnhancer extends AbstractClasspathEnhancer {
 
     private String loadDependencies(File dependencies) throws IOException {
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Utils.copy(new FileInputStream(dependencies), out);
+        CpMagicUtils.copy(new FileInputStream(dependencies), out);
         return new String(out.toByteArray());
     }
 
     private String calcDependencies(InputStream pom, File source, File dir, File dependencies) throws IOException {
-        Utils.copy(pom, new FileOutputStream(new File(dir, "pom.xml")));
-        final String output = Utils.execute(
+        CpMagicUtils.copy(pom, new FileOutputStream(new File(dir, "pom.xml")));
+        final String output = CpMagicUtils.execute(
                 new ProcessBuilder("mvn", "org.apache.maven.plugins:maven-dependency-plugin:2.8:list").directory(dir),
                 "mvn terminated with code ");
-        Utils.copy(new ByteArrayInputStream(output.getBytes()), new FileOutputStream(dependencies));
+        CpMagicUtils.copy(new ByteArrayInputStream(output.getBytes()), new FileOutputStream(dependencies));
         dependencies.setLastModified(source.lastModified());
         return output;
     }

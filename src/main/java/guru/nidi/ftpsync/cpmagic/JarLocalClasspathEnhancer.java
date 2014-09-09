@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package guru.nidi.ftpsync;
+package guru.nidi.ftpsync.cpmagic;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -58,7 +58,7 @@ public class JarLocalClasspathEnhancer extends AbstractClasspathEnhancer {
     }
 
     private void enhanceWithJar(File jar) {
-        final File dir = Utils.tempFile(getAppClass().getName());
+        final File dir = CpMagicUtils.tempFile(getAppClass().getName());
         dir.mkdirs();
         try (final JarFile jarFile = new JarFile(jar)) {
             final Enumeration<JarEntry> entries = jarFile.entries();
@@ -66,7 +66,7 @@ public class JarLocalClasspathEnhancer extends AbstractClasspathEnhancer {
                 final JarEntry jarEntry = entries.nextElement();
                 if (!jarEntry.isDirectory() && jarEntry.getName().endsWith(".jar")) {
                     final File temp = new File(dir, jarEntry.getName());
-                    Utils.copy(jarFile.getInputStream(jarEntry), new FileOutputStream(temp));
+                    CpMagicUtils.copy(jarFile.getInputStream(jarEntry), new FileOutputStream(temp));
                     enhanceClassLoader(temp.toURI().toURL());
                 }
             }
