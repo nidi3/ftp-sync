@@ -72,7 +72,7 @@ public class FtpSync implements Closeable {
         final Analysis analysis = new Analysis(new InputStreamReader(new FileInputStream(syncFile()), "utf-8"));
         analyze("/", analysis);
         delete(analysis);
-        copy(analysis);
+        copy("/", analysis);
         analysis.saveState(new OutputStreamWriter(new FileOutputStream(syncFile()), "utf-8"));
     }
 
@@ -127,12 +127,9 @@ public class FtpSync implements Closeable {
         });
     }
 
-    public void copy(Analysis analysis) throws IOException {
-        System.out.println("Copying to remote...");
-        copy("/", analysis);
-    }
-
     public void copy(final String dir, final Analysis analysis) throws IOException {
+        System.out.println("Copying to remote: " + dir);
+
         if (analysis.shouldCopy(localDir, dir)) {
             fileSystem.createDirectory(remoteDir + dir);
         }
@@ -140,7 +137,7 @@ public class FtpSync implements Closeable {
         Utils.doProgressively(new LocalFileSystem().listFiles(localDir + dir, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
             @Override
             public String itemName(AbstractFile item) {
-                return withSlash(dir) + item.getName();
+                return item.getName();
             }
 
             @Override
@@ -166,7 +163,11 @@ public class FtpSync implements Closeable {
         private final Set<String> delete = new TreeSet<>(new Comparator<String>() {
             @Override
             public int compare(String s1, String s2) {
-                return s2.length() - s1.length();
+                int res = s2.length() - s1.length();
+                if (res == 0) {
+                    res = s2.compareTo(s1);
+                }
+                return res;
             }
         });
 
