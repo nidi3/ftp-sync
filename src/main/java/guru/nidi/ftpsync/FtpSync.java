@@ -29,9 +29,7 @@ import java.util.zip.Adler32;
 public class FtpSync implements Closeable {
     static {
         final MavenRepoClasspathEnhancer enhancer = new MavenRepoClasspathEnhancer(FtpSync.class);
-//        enhancer.enhanceClassLoader("org.bouncycastle", "bcpkix-jdk15on", "1.48");
         enhancer.enhanceClassLoader();
-//        new JarLocalClasspathEnhancer(FtpSync.class).enhanceClassLoader();
     }
 
     private static final AbstractFileFilter SELECT_FILES = new AbstractFileFilter() {
