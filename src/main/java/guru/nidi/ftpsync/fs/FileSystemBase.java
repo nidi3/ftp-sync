@@ -15,27 +15,26 @@
  */
 package guru.nidi.ftpsync.fs;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
-
 /**
  *
  */
-public interface FileSystem extends Closeable {
-    String getBasedir();
+public abstract class FileSystemBase implements FileSystem {
+    protected final String basedir;
 
-    void deleteFile(String name) throws IOException;
+    public FileSystemBase() {
+        this("");
+    }
 
-    void deleteDirectory(String name) throws IOException;
+    public FileSystemBase(String basedir) {
+        this.basedir = basedir.endsWith("/") ? basedir.substring(0, basedir.length() - 1) : basedir;
+    }
 
-    void putFile(File local, String dest) throws IOException;
+    protected String expand(String s) {
+        return basedir + (s.startsWith("/") ? "" : "/") + s;
+    }
 
-    void getFile(File local, String dest) throws IOException;
-
-    void createDirectory(String name) throws IOException;
-
-    List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException;
-
+    @Override
+    public String getBasedir() {
+        return basedir;
+    }
 }

@@ -19,20 +19,18 @@ import guru.nidi.ftpsync.Config;
 import guru.nidi.ftpsync.FtpException;
 import org.apache.commons.net.ftp.*;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  *
  */
-public class FtpFileSystem implements FileSystem {
+public class FtpFileSystem extends FileSystemBase {
     private final FTPClient client;
 
-    public FtpFileSystem(Config config) throws IOException {
+    public FtpFileSystem(String basedir, Config config) throws IOException {
+        super(basedir);
         client = new FTPClient();
         client.connect(config.getHost());
         int reply = client.getReplyCode();
@@ -49,26 +47,39 @@ public class FtpFileSystem implements FileSystem {
     }
 
     public void deleteFile(String name) throws IOException {
+        name = expand(name);
         if (!client.deleteFile(name)) {
             throw new FtpException("Could not delete file " + name, client.getReplyStrings());
         }
     }
 
     public void deleteDirectory(String name) throws IOException {
+        name = expand(name);
         if (!client.removeDirectory(name)) {
             throw new FtpException("Could not delete directory " + name, client.getReplyStrings());
         }
     }
 
-    public void copyFile(File local, String dest) throws IOException {
+    public void putFile(File local, String dest) throws IOException {
+        dest = expand(dest);
         try (InputStream in = new FileInputStream(local)) {
             if (!client.storeFile(dest, in)) {
-                throw new FtpException("Could not copy file " + local + " to " + dest, client.getReplyStrings());
+                throw new FtpException("Could put copy file " + local + " to " + dest, client.getReplyStrings());
+            }
+        }
+    }
+
+    public void getFile(File local, String dest) throws IOException {
+        dest = expand(dest);
+        try (OutputStream out = new FileOutputStream(local)) {
+            if (!client.retrieveFile(dest, out)) {
+                throw new FtpException("Could get copy file " + local + " from " + dest, client.getReplyStrings());
             }
         }
     }
 
     public void createDirectory(String name) throws IOException {
+        name = expand(name);
         if (!client.makeDirectory(name)) {
             throw new FtpException("Could not create directory " + name, client.getReplyStrings());
         }
@@ -77,7 +88,7 @@ public class FtpFileSystem implements FileSystem {
     @Override
     public List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException {
         List<AbstractFile> res = new ArrayList<>();
-        for (FTPFile file : client.listFiles(dir, new FTPFileFilterImpl(filter))) {
+        for (FTPFile file : client.listFiles(expand(dir), new FTPFileFilterImpl(filter))) {
             res.add(new AbstractFileImpl(file));
         }
         return res;

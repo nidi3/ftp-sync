@@ -17,6 +17,7 @@ package guru.nidi.ftpsync;
 
 import org.apache.commons.cli.*;
 
+import java.io.File;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +32,7 @@ public class Config {
     private String password;
     private String identity;
     private boolean secure;
+    private boolean forceRemoteAnalysis;
     private String localDir;
     private String remoteDir;
 
@@ -39,6 +41,7 @@ public class Config {
         try {
             CommandLineParser parser = new BasicParser();
             CommandLine cmd = parser.parse(options, args);
+            forceRemoteAnalysis = cmd.hasOption('f');
             password = cmd.getOptionValue('p');
             identity = cmd.getOptionValue('i');
             if (password == null && identity == null) {
@@ -50,6 +53,10 @@ public class Config {
                 throw new IllegalArgumentException("Source and destination directory needed");
             }
             localDir = argList.get(0);
+            final File localDirFile = new File(localDir);
+            if (!localDirFile.exists() || !localDirFile.isDirectory()) {
+                throw new IllegalArgumentException("Source directory must exist and be a directory");
+            }
             String rawRemote = argList.get(1);
             final Matcher matcher = REMOTE.matcher(rawRemote);
             if (!matcher.matches()) {
@@ -71,6 +78,7 @@ public class Config {
         options.addOption(OptionBuilder.withDescription("The password").isRequired(false).withArgName("password").hasArg(true).create('p'));
         options.addOption(OptionBuilder.withDescription("The private key").isRequired(false).withArgName("private key").hasArg(true).create('i'));
         options.addOption(OptionBuilder.withDescription("If SFTP should be used").isRequired(false).withArgName("sftp").hasArg(false).create('s'));
+        options.addOption(OptionBuilder.withDescription("Force remote analysis").isRequired(false).hasArg(false).create('f'));
         return options;
     }
 
@@ -92,6 +100,10 @@ public class Config {
 
     public boolean isSecure() {
         return secure;
+    }
+
+    public boolean isForceRemoteAnalysis() {
+        return forceRemoteAnalysis;
     }
 
     public String getLocalDir() {

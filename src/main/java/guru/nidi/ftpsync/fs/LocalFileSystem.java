@@ -22,30 +22,43 @@ import java.util.List;
 /**
  *
  */
-public class LocalFileSystem implements FileSystem {
+public class LocalFileSystem extends FileSystemBase {
+    public LocalFileSystem(String basedir) {
+        super(basedir);
+    }
+
+    private File file(String name) {
+        return new File(expand(name));
+    }
+
     @Override
     public void deleteFile(String name) throws IOException {
-        new File(name).delete();
+        file(name).delete();
     }
 
     @Override
     public void deleteDirectory(String name) throws IOException {
-        new File(name).delete();
+        file(name).delete();
     }
 
     @Override
-    public void copyFile(File local, String dest) throws IOException {
-        FsUtils.copy(new FileInputStream(local), new FileOutputStream(dest));
+    public void putFile(File local, String dest) throws IOException {
+        FsUtils.copy(new FileInputStream(local), new FileOutputStream(expand(dest)));
+    }
+
+    @Override
+    public void getFile(File local, String dest) throws IOException {
+        FsUtils.copy(new FileInputStream(expand(dest)), new FileOutputStream(local));
     }
 
     @Override
     public void createDirectory(String name) throws IOException {
-        new File(name).mkdirs();
+        file(name).mkdirs();
     }
 
     @Override
     public List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException {
-        final File[] files = new File(dir).listFiles(new FileFilterImpl(filter));
+        final File[] files = file(dir).listFiles(new FileFilterImpl(filter));
         List<AbstractFile> res = new ArrayList<>();
         if (files != null) {
             for (File file : files) {

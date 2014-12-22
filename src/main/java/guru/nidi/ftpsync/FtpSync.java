@@ -45,19 +45,40 @@ public class FtpSync implements Closeable {
         }
     };
 
-    private final String localDir;
-    private final String remoteDir;
-    private final FileSystem fileSystem;
+    private final FileSystem remoteFileSystem;
+    private final FileSystem localFileSystem;
+    private final boolean forceRemoteAnalysis;
+    private final File syncFile;
 
     public FtpSync(Config config) throws IOException {
-        localDir = config.getLocalDir();
-        remoteDir = config.getRemoteDir();
-        fileSystem = config.isSecure() ? new SftpFileSystem(config) : new FtpFileSystem(config);
+        remoteFileSystem = config.isSecure()
+                ? new SftpFileSystem(config.getRemoteDir(), config)
+                : new FtpFileSystem(config.getRemoteDir(), config);
+        localFileSystem = new LocalFileSystem(config.getLocalDir());
+        forceRemoteAnalysis = config.isForceRemoteAnalysis();
+        final File local = new File(config.getLocalDir());
+        syncFile = new File(local.getParentFile(),
+                sanitizeForFilename(config.getHost() + "-" + config.getRemoteDir() + "-" + local.getName() + ".sync"));
+        if (!syncFile.exists()) {
+            syncFile.createNewFile();
+        }
+    }
+
+    private String sanitizeForFilename(String s) {
+        final StringBuilder res = new StringBuilder(s);
+        for (int i = 0; i < res.length(); i++) {
+            final char c = res.charAt(i);
+            final boolean ok = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || ".".indexOf(c) >= 0;
+            if (!ok) {
+                res.setCharAt(i, '-');
+            }
+        }
+        return res.toString();
     }
 
     @Override
     public void close() throws IOException {
-        fileSystem.close();
+        remoteFileSystem.close();
     }
 
     public static void main(String[] args) throws IOException {
@@ -67,26 +88,26 @@ public class FtpSync implements Closeable {
     }
 
     public void sync() throws IOException {
-        final Analysis analysis = new Analysis(new InputStreamReader(new FileInputStream(syncFile()), "utf-8"));
-        analyze("/", analysis);
+        try {
+            remoteFileSystem.createDirectory("");
+        } catch (IOException e) {
+            //ignore
+        }
+        final Analysis analysis = new Analysis(new InputStreamReader(new FileInputStream(syncFile), "utf-8"));
+        final FileSystem fsToAnalyze = (syncFile.length() == 0 || forceRemoteAnalysis)
+                ? remoteFileSystem
+                : localFileSystem;
+        analyze(fsToAnalyze, "/", analysis);
         delete(analysis);
         copy("/", analysis);
-        analysis.saveState(new OutputStreamWriter(new FileOutputStream(syncFile()), "utf-8"));
+        analysis.saveState(new OutputStreamWriter(new FileOutputStream(syncFile), "utf-8"));
     }
 
-    private File syncFile() throws IOException {
-        final File local = new File(localDir);
-        final File sync = new File(local.getParentFile(), local.getName() + ".sync");
-        if (!sync.exists()) {
-            sync.createNewFile();
-        }
-        return sync;
-    }
-
-    public boolean analyze(final String dir, final Analysis analysis) throws IOException {
-        System.out.println("Analyzing remote: " + dir);
+    public boolean analyze(FileSystem fileSystem, final String dir, final Analysis analysis) throws IOException {
+        final String target = fileSystem instanceof LocalFileSystem ? "local" : "remote";
+        System.out.println("Analyzing " + target + ": " + dir);
         final boolean[] keepAny = new boolean[]{false};
-        Utils.doProgressively(fileSystem.listFiles(remoteDir + dir, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
+        Utils.doProgressively(fileSystem.listFiles(dir, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
             @Override
             public String itemName(AbstractFile item) {
                 return item.getName();
@@ -94,11 +115,11 @@ public class FtpSync implements Closeable {
 
             @Override
             public void processItem(AbstractFile item) throws Exception {
-                keepAny[0] |= analysis.willKeepFile(localDir, withSlash(dir) + item.getName());
+                keepAny[0] |= analysis.willKeepFile(localFileSystem.getBasedir(), withSlash(dir) + item.getName());
             }
         });
-        for (AbstractFile sub : fileSystem.listFiles(remoteDir + dir, SELECT_DIRS)) {
-            keepAny[0] |= analyze(withSlash(dir) + sub.getName(), analysis);
+        for (AbstractFile sub : fileSystem.listFiles(dir, SELECT_DIRS)) {
+            keepAny[0] |= analyze(fileSystem, withSlash(dir) + sub.getName(), analysis);
         }
         if (!keepAny[0]) {
             analysis.addDirToDelete(dir);
@@ -117,9 +138,9 @@ public class FtpSync implements Closeable {
             @Override
             public void processItem(String item) throws Exception {
                 if (item.endsWith("/")) {
-                    fileSystem.deleteDirectory(remoteDir + item);
+                    remoteFileSystem.deleteDirectory(item);
                 } else {
-                    fileSystem.deleteFile(remoteDir + item);
+                    remoteFileSystem.deleteFile(item);
                 }
             }
         });
@@ -128,11 +149,11 @@ public class FtpSync implements Closeable {
     public void copy(final String dir, final Analysis analysis) throws IOException {
         System.out.println("Copying to remote: " + dir);
 
-        if (analysis.shouldCopy(localDir, dir)) {
-            fileSystem.createDirectory(remoteDir + dir);
+        if (analysis.shouldCopy(localFileSystem.getBasedir(), dir)) {
+            remoteFileSystem.createDirectory(dir);
         }
 
-        Utils.doProgressively(new LocalFileSystem().listFiles(localDir + dir, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
+        Utils.doProgressively(localFileSystem.listFiles(dir, SELECT_FILES), new Utils.ProgressWorker<AbstractFile>() {
             @Override
             public String itemName(AbstractFile item) {
                 return item.getName();
@@ -141,13 +162,13 @@ public class FtpSync implements Closeable {
             @Override
             public void processItem(AbstractFile item) throws IOException {
                 final String fullname = withSlash(dir) + item.getName();
-                if (analysis.shouldCopy(localDir, fullname)) {
-                    fileSystem.copyFile(item.asFile(), remoteDir + fullname);
+                if (analysis.shouldCopy(localFileSystem.getBasedir(), fullname)) {
+                    remoteFileSystem.putFile(item.asFile(), fullname);
                 }
             }
         });
 
-        for (AbstractFile sub : new LocalFileSystem().listFiles(localDir + dir, SELECT_DIRS)) {
+        for (AbstractFile sub : localFileSystem.listFiles(dir, SELECT_DIRS)) {
             copy(withSlash(dir) + sub.getName(), analysis);
         }
     }

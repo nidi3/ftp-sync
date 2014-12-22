@@ -29,11 +29,12 @@ import java.util.List;
 /**
  *
  */
-public class SftpFileSystem implements FileSystem {
+public class SftpFileSystem extends FileSystemBase {
     private final SSHClient ssh;
     private final SFTPClient client;
 
-    public SftpFileSystem(Config config) throws IOException {
+    public SftpFileSystem(String basedir, Config config) throws IOException {
+        super(basedir);
         ssh = new SSHClient();
         ssh.loadKnownHosts();
         ssh.connect(config.getHost());
@@ -52,25 +53,29 @@ public class SftpFileSystem implements FileSystem {
     }
 
     public void deleteFile(String name) throws IOException {
-        client.rm(name);
+        client.rm(expand(name));
     }
 
     public void deleteDirectory(String name) throws IOException {
-        client.rmdir(name);
+        client.rmdir(expand(name));
     }
 
-    public void copyFile(File local, String dest) throws IOException {
-        client.put(local.getAbsolutePath(), dest);
+    public void putFile(File local, String dest) throws IOException {
+        client.put(local.getAbsolutePath(), expand(dest));
+    }
+
+    public void getFile(File local, String dest) throws IOException {
+        client.get(local.getAbsolutePath(), expand(dest));
     }
 
     public void createDirectory(String name) throws IOException {
-        client.mkdir(name);
+        client.mkdirs(expand(name));
     }
 
     @Override
     public List<AbstractFile> listFiles(String dir, AbstractFileFilter filter) throws IOException {
         List<AbstractFile> res = new ArrayList<>();
-        for (RemoteResourceInfo info : client.ls(dir, new RemoteResourceFilterImpl(filter))) {
+        for (RemoteResourceInfo info : client.ls(expand(dir), new RemoteResourceFilterImpl(filter))) {
             res.add(new AbstractFileImpl(info));
         }
         return res;
